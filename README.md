@@ -1,100 +1,189 @@
 # MEV Exposure Reporter
 
 > Quantify how much a wallet has lost to **sandwich attacks**,
-> **frontruns**, and **backruns** on any EVM chain.
+> **frontruns**, and **backruns** on EVM chains.
 
 [![python](https://img.shields.io/badge/python-3.9%2B-blue)]()
 [![license](https://img.shields.io/badge/license-MIT--0-green)]()
 [![rpc](https://img.shields.io/badge/RPC-JSON--RPC%20%7C%20EVM-orange)]()
 
-## What it does
+## Overview
 
-Given a wallet address and an EVM JSON-RPC URL, this tool:
+Given a wallet address and an EVM JSON-RPC URL, this tool walks the
+wallet's recent swap transactions, looks inside the same blocks for
+sandwich / frontrun / backrun patterns, and produces a structured
+report with a 0–100 **MEV exposure score** and per-incident detail.
 
-1. Walks the wallet's recent transactions.
-2. Identifies every swap (Uniswap V2 / V3, Sushi, PancakeSwap, and any
-   router registered in `references/detection-rules.md`).
-3. Looks **inside the same block** for sandwich, frontrun, and backrun
-   patterns around each victim swap.
-4. Produces a human-readable report with:
-   - Total estimated USD loss.
-   - A 0–100 **MEV exposure score**.
-   - Top attacker EOAs.
-   - Per-incident detail (block, tx hash, attacker, confidence).
+It works against any EVM chain but ships with first-class support for
+the Pharos networks (see [Supported networks](#supported-networks)).
 
-It works on any EVM chain — Ethereum, Pharos mainnet (with atlantic-testnet
-supported as well), Base, Arbitrum, etc. — provided you have a JSON-RPC
-endpoint.
+## Features
 
-## Specifications
+- **Sandwich attack detection** — three txs in one block, same pool,
+  attacker brackets the victim (confidence 0.85).
+- **Frontrun detection** — non-victim tx with the same `to` + same
+  function selector that lands before the victim in the same block
+  (confidence 0.70).
+- **Backrun detection** — same as frontrun but lands after the victim
+  (confidence 0.60).
+- **MEV exposure score** — a 0–100 heuristic that weights sandwiches
+  most heavily, designed to be intuitive rather than statistically
+  calibrated.
+- **Top attacker list** — ranks EOAs that have extracted from this
+  wallet the most, suitable for blocklist / RPC-level filtering.
+- **Multi-format output** — text (default), JSON, Markdown, or HTML
+  via the `report.py` formatter.
+- **No web3 framework dependency** — uses plain `eth_*` JSON-RPC, so
+  it runs anywhere Python 3.9+ runs.
+- **Pluggable** — add a new DEX by appending its function selector
+  to `references/detection-rules.md`.
 
-| Item              | Value                                        |
-|-------------------|----------------------------------------------|
-| **Network**       | Pharos mainnet (primary); atlantic-testnet and any EVM chain also supported |
-| **Framework**     | Plain Python 3.9+; no web3 framework dependency |
-| **RPC protocol**  | JSON-RPC (`eth_*` methods)                   |
-| **License**       | MIT-0 (free to use, modify, redistribute)    |
-| **Dependencies**  | `requests` (see `requirements.txt`)          |
-| **External tools**| Optional: `cast` / `forge` (Foundry) for native balance + tx decoding fallback |
-| **Inputs**        | Wallet address, RPC URL, optional block range |
-| **Outputs**       | Text, JSON, Markdown, or HTML report         |
+## Supported networks
 
-## Quick start
+The tool runs against any EVM-compatible JSON-RPC endpoint. The
+following networks are explicitly supported out of the box and used
+in the examples below.
+
+| Network                | Chain ID | RPC URL                              | Native token | Explorer                          |
+|------------------------|----------|--------------------------------------|--------------|-----------------------------------|
+| Pharos Pacific Mainnet | `1672`   | `https://rpc.pharos.xyz`             | PROS         | https://www.pharosscan.xyz/       |
+| Pharos Atlantic Testnet| `688689` | `https://atlantic.dplabs-internal.com` | PHRS         | https://atlantic.pharosscan.xyz/  |
+
+You can target either by passing the matching `--rpc-url` flag
+(see [Usage](#usage)).
+
+## Framework
+
+- **Language:** Python 3.9+
+- **RPC protocol:** JSON-RPC (`eth_blockNumber`, `eth_getBlockByNumber`,
+  `eth_getTransactionByHash`, `eth_getTransactionReceipt`,
+  `eth_getLogs`, `eth_chainId`)
+- **External CLIs (optional):** `cast` / `forge` from
+  [Foundry](https://book.getfoundry.xyz/) for native balance fallback
+  and tx decoding; `jq` for ergonomic RPC URL extraction in shell
+  pipelines.
+- **No web3 framework required** — the engine speaks JSON-RPC directly
+  over `requests` so it has the smallest possible install footprint
+  and the fewest moving parts.
+
+## Dependencies
+
+Runtime (Python):
+
+- `requests>=2.31` — HTTP client used by `src/rpc.py`.
+
+External (only if you want the optional CLIs):
+
+- `cast` / `forge` — Foundry CLI (https://book.getfoundry.xyz/getting-started/installation).
+- `jq` — command-line JSON processor, used in README shell snippets.
+
+Everything is pinned in `requirements.txt` at the repo root.
+
+## Installation
 
 ```bash
-# Clone and install
+# Clone
 git clone https://github.com/aminatadegoke58/MEVREP.git
 cd MEVREP
+
+# Install Python dependency
 pip install -r requirements.txt
 
-# Scan a wallet on Pharos mainnet
-python src/detect_mev.py \
-  --wallet 0xYourWallet \
-  --rpc-url https://mainnet.pharosnetwork.xyz \
-  --block-count 2000
+# (Optional) install Foundry if you want cast/forge fallback
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 ```
 
-To target a different chain, just swap the `--rpc-url`:
+No build step. No native compilation. The whole engine is three
+~500-line Python files.
 
-```bash
-# Pharos atlantic-testnet
-python src/detect_mev.py \
-  --wallet 0xYourWallet \
-  --rpc-url https://atlantic-rpc.pharosnetwork.xyz \
-  --block-count 2000
+## Usage
 
-# Ethereum mainnet
-python src/detect_mev.py \
-  --wallet 0xYourWallet \
-  --rpc-url https://eth.llamarpc.com \
-  --block-count 2000
-```
-
-For JSON output (pipe into the report formatter):
+### Scan a Pharos mainnet wallet
 
 ```bash
 python src/detect_mev.py \
   --wallet 0xYourWallet \
-  --rpc-url https://mainnet.pharosnetwork.xyz \
+  --rpc-url https://rpc.pharos.xyz \
+  --block-count 2000
+```
+
+### Scan a Pharos Atlantic testnet wallet
+
+```bash
+python src/detect_mev.py \
+  --wallet 0xYourWallet \
+  --rpc-url https://atlantic.dplabs-internal.com \
+  --block-count 2000
+```
+
+### Output as JSON, then format as Markdown
+
+```bash
+python src/detect_mev.py \
+  --wallet 0xYourWallet \
+  --rpc-url https://rpc.pharos.xyz \
   --format json \
   | python src/report.py --format markdown --out mev-report.md
 ```
 
-## Use with an AI agent
+### Output as HTML
 
-The skill spec at `SKILL.md` is the entry point the agent reads. The
-agent will:
+```bash
+python src/detect_mev.py \
+  --wallet 0xYourWallet \
+  --rpc-url https://rpc.pharos.xyz \
+  --format json \
+  | python src/report.py --format html --out mev-report.html
+```
 
-1. Read `SKILL.md` and `references/detection-rules.md` to learn the
-   available capabilities.
-2. Use the RPC URL the user provides (or fall back to a known EVM RPC).
-3. Invoke `src/detect_mev.py` with the user's wallet.
-4. Format the output with `src/report.py` and present it in the chat.
+### Command-line flags
 
-A typical agent prompt that triggers this skill:
+| Flag             | Required | Default | Description                                   |
+|------------------|----------|---------|-----------------------------------------------|
+| `--wallet`       | yes      | —       | 0x address to analyze                         |
+| `--rpc-url`      | yes      | —       | JSON-RPC endpoint                             |
+| `--block-count`  | no       | 5000    | How many recent blocks to scan                |
+| `--min-loss-usd` | no       | 0.5     | Ignore dust extraction below this USD         |
+| `--format`       | no       | text    | `text` (default) or `json`                    |
 
-> "How much have I lost to MEV over the last 2000 blocks? My wallet is
-> `0xYourWallet`."
+### Sample output
+
+See `examples/sample-output.md` for what a real report looks like.
+
+## AI Agent Integration
+
+This repository ships a `SKILL.md` at the root that any agent
+runtime can load to discover the skill. The flow is:
+
+1. The agent reads `SKILL.md` to learn the capability and required
+   arguments (`--wallet`, `--rpc-url`).
+2. The agent collects the wallet address and target network from
+   the user (it never invents either).
+3. The agent runs `python src/detect_mev.py --wallet <addr>
+   --rpc-url <rpc>` and captures stdout.
+4. If the user wants a formatted report, the agent pipes the JSON
+   output through `python src/report.py --format <fmt>`.
+5. The agent presents the report inline, with the headline
+   "MEV exposure score" and total estimated loss surfaced first.
+
+A typical prompt that triggers the skill:
+
+> "How much have I lost to MEV on Pharos mainnet over the last 2000
+> blocks? My wallet is `0xYourWallet`."
+
+A typical reply:
+
+> **MEV Exposure Score: 20 / 100** — **Total estimated loss: $0.00**
+>
+> | Class     | Count |
+> |-----------|-------|
+> | Sandwich  | 2     |
+> | Frontrun  | 3     |
+> | Backrun   | 1     |
+>
+> Top attacker: `0x6b75…b3a3` (2 incidents). See `mev-report.md` for
+> per-incident breakdown.
 
 ## Repository layout
 
@@ -115,12 +204,6 @@ MEVREP/
 ```
 
 ## How detection works
-
-- **Sandwich** — three txs in one block, same pool, attacker brackets
-  victim. Confidence 0.85.
-- **Frontrun** — non-victim tx with same `to` + same selector, lands
-  *before* victim in the same block. Confidence 0.70.
-- **Backrun** — same as frontrun but lands *after*. Confidence 0.60.
 
 See `references/detection-rules.md` for the full list of function
 selectors, the score formula, and how to add a new DEX.

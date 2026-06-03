@@ -1,7 +1,7 @@
 # Example: MEV Exposure Report
 
-> Generated against a public test wallet on Pharos atlantic-testnet.
-> See `SKILL.md` for the full command line.
+> Generated against a public test wallet. See `SKILL.md` for the
+> full command line.
 
 ```
 ================================================================

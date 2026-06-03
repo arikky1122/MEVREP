@@ -83,13 +83,13 @@ pip install -r requirements.txt
 # 2. Run a scan
 python src/detect_mev.py \
   --wallet 0xYourWalletHere \
-  --rpc-url https://mainnet.pharosnetwork.xyz \
+  --rpc-url https://rpc.pharos.xyz \
   --block-count 2000
 
 # 3. Get a JSON report
 python src/detect_mev.py \
   --wallet 0xYourWalletHere \
-  --rpc-url https://mainnet.pharosnetwork.xyz \
+  --rpc-url https://rpc.pharos.xyz \
   --format json > report.json
 ```
 
