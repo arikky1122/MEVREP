@@ -83,7 +83,7 @@ Everything is pinned in `requirements.txt` at the repo root.
 
 ```bash
 # Clone
-git clone https://github.com/aminatadegoke58/MEVREP.git
+git clone https://github.com/arikky1122/MEVREP.git
 cd MEVREP
 
 # Install Python dependency
@@ -227,5 +227,5 @@ redistribute. No attribution required.
 
 ---
 
-**Author:** aminatadegoke58
+**Author:** arikky1122
 **Built with:** Python 3.9+ and a healthy distrust of public memepools.
