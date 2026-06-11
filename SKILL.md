@@ -10,11 +10,11 @@ description: >
   detector to scan a wallet's transaction history via JSON-RPC against
   any EVM-compatible RPC endpoint.
   Do not attempt MEV exposure analysis without reading this skill.
-version: 1.1.0
+version: 2.0.0
 requires: read
-bins: [python3]
+bins: [bash, cast, jq]
 author: arikky1122
-tags: [pharos, security, mev, defi, sandwich, frontrun, agent-skill]
+tags: [pharos, security, mev, defi, sandwich, frontrun, agent-skill, foundry]
 agents: [claude, codex, gemini, openclaw]
 ---
 
