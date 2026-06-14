@@ -160,9 +160,9 @@ echo "  ChainId: $CHAIN_ID"
 echo "========================================================================"
 echo ""
 
-NONCE=$(cast nonce --rpc-url "$RPC_URL" "$WALLET" 2>/dev/null | tr -d '[:space:]' || echo "0x0")
+NONCE=$(timeout 10 cast nonce --rpc-url "$RPC_URL" "$WALLET" 2>/dev/null | tr -d '[:space:]' || echo "0x0")
 NONCE_DEC=$(cast --to-dec "$NONCE" 2>/dev/null | tr -d '[:space:]' || echo "0")
-BALANCE=$(cast balance --rpc-url "$RPC_URL" "$WALLET" 2>/dev/null | tr -d '[:space:]' || echo "0")
+BALANCE=$(timeout 10 cast balance --rpc-url "$RPC_URL" "$WALLET" 2>/dev/null | tr -d '[:space:]' || echo "0")
 echo "  Wallet nonce:  $NONCE_DEC (outgoing tx count)"
 echo "  Wallet balance: $BALANCE"
 echo ""
@@ -211,7 +211,7 @@ TEXT
 fi
 
 # ---- Fetch head block ----
-HEAD=$(cast block-number --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]' || echo "0x0")
+HEAD=$(timeout 10 cast block-number --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]' || echo "0x0")
 HEAD_DEC=$(cast --to-dec "$HEAD" 2>/dev/null | tr -d '[:space:]' || echo "0")
 START=$(( HEAD_DEC - BLOCKS ))
 [ "$START" -lt 0 ] && START=0
